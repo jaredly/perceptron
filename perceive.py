@@ -11,6 +11,12 @@ class Perceptron:
         self.weights = np.zeros(size)
         self.trainingRate = rate
 
+    def classify(self, line):
+        line = np.concatenate((line, [1]))
+        net = self.weights.dot(line)
+        output = 1 if net > 0 else 0
+        return output, net
+
     def train(self, line, learn=True):
         # history?
         values = line.copy()
@@ -76,6 +82,16 @@ def subData(data, truthy, falsy, find):
     return tdata
 
 class Main:
+    '''Perceptron tester
+
+    This will train a perceptron (or mutliple, if there are more than two
+    possible outputs) given a dataset and meta information, assumed to come
+    from an .arff file.
+
+    When training, if no progress is made in 20 epochs it will quit.
+
+    '''
+
     def __init__(self, data, meta, rate=.1, find=None):
         if find is None:
             find = meta.names()[-1]
@@ -85,6 +101,7 @@ class Main:
         self.raw = data
         self.data = normalize(self.norm, data)
         self.best = 0
+        self.best_weights = None
 
         _, possible = meta[find]
 
@@ -109,38 +126,53 @@ class Main:
         total = sum(accuracy)/float(len(accuracy))
         if total > self.best:
             self.best = total
+            self.best_weights = weights
         return accuracy, weights
 
     def validate(self, data):
         norm = normalize(self.norm, data)
+        total = len(norm.index)
+        wrong = 0.0
         for i in norm.index:
             votes = {}
             for (truthy, falsy), p in self.perceptrons.items():
-                res, confidence = p.train(norm.loc[i], learn=False)
+                res, confidence = p.classify(norm.loc[i][:-1])
+                # print res, confidence, truthy, falsy, p.weights, norm.loc[i]
                 vote = truthy if res else falsy
-                # at the moment, ignoring confidence
-                votes[vote] += 1
-            most = sorted(votes.items, (lambda (ka, va), (kb, vb): va - vb))
-            print most
-            if most[0][0] != norm.loc[
+                if vote not in votes:
+                    votes[vote] = [0, 0]
+                votes[vote][0] += 1
+                votes[vote][1] += abs(confidence)
+            most = sorted(votes.items(), (lambda (ka, va), (kb, vb): vb[0] - va[0]))
+            # print most
+            if most[0][0] != norm.loc[i][self.find]:
+                # print 'Wrong!'
+                wrong += 1
+        return wrong/total, wrong
 
-    def trainUp(self):
+    def trainUp(self, data=None):
         history = []
+        data = self.data
         for i in range(100):
             b = self.best
             for m in range(20):
                 # shuffle data
-                ix = np.array(self.data.index)
+                ix = np.array(data.index)
                 np.random.shuffle(ix)
-                self.data = self.data.reindex(ix)
+                self.data = data.reindex(ix)
                 # train perceptrons
-                history.append(self.train_perceptrons(self.data))
+                history.append(self.train_perceptrons(data))
                 if self.best == 1:
                     print 'Fully trained'
                     return history
             if self.best == b:
                 print 'Done classifying; no progress in past 20 epochs'
+                # revert to the best weights
+                for w, (k, p) in zip(self.best_weights, self.perceptrons.items()):
+                    p.weights = w
                 return history[:-20]
+
+    def train
 
 def fromArff(fname, rate):
     data, meta = loadarff(fname)
