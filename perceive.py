@@ -49,6 +49,22 @@ def normalizers(data, meta):
     # print ranges
     return ranges
 
+def denormalize(norms, data):
+    data = data.copy()
+    for name, (typ, more) in norms.items():
+        if typ == 'numeric':
+            mn, rng = more
+            data[name] *= rng
+            data[name] += mn
+        else:
+            total = len(more) - 1.0
+            final = np.zeros(len(data[name]), str)
+            for i, v in enumerate(more):
+                num = i / total
+                final[data[name] == num] = v
+            data[name] = final
+    return data
+
 def normalize(norms, data):
     data = data.copy()
     for name, (typ, more) in norms.items():
@@ -92,22 +108,21 @@ class Main:
 
     '''
 
-    def __init__(self, data, meta, rate=.1, find=None):
+    def __init__(self, meta, rate=.1, find=None):
         if find is None:
             find = meta.names()[-1]
-        length = len(data.columns) - 1
+        length = len(meta.names())
         self.find = find
-        self.norm = normalizers(data, meta)
-        self.raw = data
-        self.data = normalize(self.norm, data)
         self.best = 0
         self.best_weights = None
+        self.norm = None
+        self.meta = meta
 
         _, possible = meta[find]
 
         self.perceptrons = {}
         for truthy, falsy in itertools.combinations(possible, 2):
-            self.perceptrons[(truthy, falsy)] = Perceptron(len(data.columns), rate)
+            self.perceptrons[(truthy, falsy)] = Perceptron(length, rate)
 
     def train_perceptrons(self, data):
         accuracy = []
@@ -129,8 +144,8 @@ class Main:
             self.best_weights = weights
         return accuracy, weights
 
-    def validate(self, data):
-        norm = normalize(self.norm, data)
+    def validate(self, norm):
+        '''norm is already normalized'''
         total = len(norm.index)
         wrong = 0.0
         for i in norm.index:
@@ -150,33 +165,49 @@ class Main:
                 wrong += 1
         return wrong/total, wrong
 
-    def trainUp(self, data=None):
+    def trainUp(self, data):
         history = []
-        data = self.data
+        bests = [0]
         for i in range(100):
-            b = self.best
-            for m in range(20):
-                # shuffle data
-                ix = np.array(data.index)
-                np.random.shuffle(ix)
-                self.data = data.reindex(ix)
-                # train perceptrons
-                history.append(self.train_perceptrons(data))
-                if self.best == 1:
-                    print 'Fully trained'
+            # shuffle data
+            ix = np.array(data.index)
+            np.random.shuffle(ix)
+            data = data.reindex(ix)
+            # train perceptrons
+            history.append(self.train_perceptrons(data))
+            if self.best == 1:
+                print 'Fully trained'
+                return history
+            bests.append(self.best)
+            if len(bests) > 20:
+                if bests.pop(0) == self.best:
+                    print 'Done classifying; no progress in past 20 epochs'
+                    # revert to the best weights
+                    for w, (k, p) in zip(self.best_weights, self.perceptrons.items()):
+                        p.weights = w
                     return history
-            if self.best == b:
-                print 'Done classifying; no progress in past 20 epochs'
-                # revert to the best weights
-                for w, (k, p) in zip(self.best_weights, self.perceptrons.items()):
-                    p.weights = w
-                return history[:-20]
 
-    def train
+    def train(self, raw, split=None):
+        self.norm = normalizers(raw, self.meta)
+        data = normalize(self.norm, raw)
+
+        if not split:
+            return self.trainUp(data)
+
+        ix = np.array(data.index)
+        np.random.shuffle(ix)
+        data = data.reindex(ix)
+
+        ln = len(data.index)
+        stop = int(ln * split)
+        print 'Using', stop, 'for training, and', ln - stop, 'for testing'
+        history = self.trainUp(data.loc[data.index[:stop]])
+        result = self.validate(data.loc[data.index[stop:]])
+        return history, result
 
 def fromArff(fname, rate):
     data, meta = loadarff(fname)
     data = DataFrame(data)
-    return Main(data, meta, rate)
+    return data, Main(meta, rate)
 
 # vim: et sw=4 sts=4
