@@ -1,0 +1,13 @@
+@relation example2
+@attribute cats integer
+@attribute age integer
+@attribute hair_color {brown, blond}
+@data
+2, 10,brown
+0, 10,blond
+0, 12,brown
+1, 12,blond
+2, 11,brown
+2, 13,blond
+0, 14,brown
+4, 14,blond

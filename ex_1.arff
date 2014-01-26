@@ -1,0 +1,13 @@
+@relation example1
+@attribute friends integer
+@attribute age integer
+@attribute major {cs, law}
+@data
+8, 20,cs
+2, 21,cs
+0, 25,cs
+1, 23,cs
+8, 25,law
+20, 20,law
+10, 23,law
+7, 25,law
