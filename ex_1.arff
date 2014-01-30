@@ -3,11 +3,11 @@
 @attribute age integer
 @attribute major {cs, law}
 @data
-8, 20,cs
-2, 21,cs
-0, 25,cs
-1, 23,cs
-8, 25,law
-20, 20,law
-10, 23,law
-7, 25,law
+0.40,0.0,cs
+0.10,0.2,cs
+0.00,1.0,cs
+0.05,0.6,cs
+0.40,1.0,law
+1.00,0.0,law
+0.50,0.6,law
+0.35,1.0,law

@@ -2,10 +2,9 @@
 Perceptron Project
 
 # 1 See attachment
-# 2
 
-ex_1.arff
-ex_2.arff
+
+# 2 See attachment
 
 # 3.1
 
